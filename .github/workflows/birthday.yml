@@ -1,0 +1,39 @@
+name: Birthday Reminder
+
+# --- Когда запускать ---
+on:
+  schedule:
+    # Cron-выражение: минуты часы день_месяца месяц день_недели
+    # '0 6 * * *' = каждый день в 06:00 UTC
+    - cron: '0 6 * * *'
+  # Позволяет запустить вручную из вкладки Actions (удобно для теста)
+  workflow_dispatch:
+
+# --- Что делать ---
+jobs:
+  send-reminder:
+    # Виртуальная машина: ubuntu-latest, windows-latest или macos-latest
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Скачать код репозитория на runner
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Установить Python нужной версии
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'   # кэширует зависимости, ускоряет следующие запуски
+
+      # 3. Установить библиотеки из requirements.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # 4. Запустить агента, передав секреты как переменные окружения
+      - name: Run birthday agent
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python birthday_agent.py
