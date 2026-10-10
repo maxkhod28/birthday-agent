@@ -27,10 +27,13 @@ def load_birthdays_from_google_sheets():
         response = requests.get(csv_url, timeout=15)
         response.raise_for_status()
 
-        # Читаем CSV из ответа (используем io.StringIO)
         csv_content = io.StringIO(response.text)
+        # Читаем все колонки, но отфильтровываем только нужные
         df = pd.read_csv(csv_content)
-
+        # Оставляем только те столбцы, которые нам нужны, если они есть
+        available_cols = [c for c in ['name', 'date', 'interests'] if c in df.columns]
+        df = df[available_cols]
+        
         # Проверяем наличие нужных колонок
         required_columns = {"name", "date"}
         if not required_columns.issubset(df.columns):
