@@ -18,11 +18,11 @@ jobs:
     steps:
       # 1. Скачать код репозитория на runner
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # 2. Установить Python нужной версии
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'   # кэширует зависимости, ускоряет следующие запуски
