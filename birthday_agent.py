@@ -7,14 +7,14 @@ import sys
 from datetime import date, timedelta
 import requests
 import pandas as pd
+
+import csv
 import io
 
-
-# ---------- 1. Загрузка данных из Google Sheets (CSV) ----------
 def load_birthdays_from_google_sheets():
     """
-    Читает данные о днях рождения из Google Таблицы,
-    опубликованной как CSV.
+    Читает данные о днях рождения из Google Таблицы (CSV).
+    Устойчив к лишним столбцам и опечаткам в заголовках.
     """
     csv_url = os.environ.get("GOOGLE_SHEET_CSV_URL")
 
@@ -23,33 +23,57 @@ def load_birthdays_from_google_sheets():
         return []
 
     try:
-        # Скачиваем CSV-файл по ссылке
         response = requests.get(csv_url, timeout=15)
         response.raise_for_status()
 
         csv_content = io.StringIO(response.text)
-        # Читаем все колонки, но отфильтровываем только нужные
-        df = pd.read_csv(csv_content)
-        # Оставляем только те столбцы, которые нам нужны, если они есть
-        available_cols = [c for c in ['name', 'date', 'interests'] if c in df.columns]
-        df = df[available_cols]
+        reader = csv.reader(csv_content)
         
-        # Проверяем наличие нужных колонок
-        required_columns = {"name", "date"}
-        if not required_columns.issubset(df.columns):
-            print(f"Ошибка: в таблице нет колонок {required_columns}. "
-                  f"Найдены: {list(df.columns)}")
+        try:
+            header = next(reader)
+        except StopIteration:
+            print("Ошибка: CSV файл пуст.")
             return []
 
-        # Преобразуем DataFrame в список словарей
+        # Приводим заголовки к нижнему регистру и убираем пробелы
+        header_lower = [h.strip().lower() for h in header]
+        
+        # Ищем name (обязательно)
+        try:
+            name_idx = header_lower.index("name")
+        except ValueError:
+            print(f"Ошибка: нет колонки 'name'. Найдены: {header}")
+            return []
+
+        # Ищем date ИЛИ data (на случай опечатки)
+        date_idx = None
+        for possible_name in ["date", "data"]:
+            if possible_name in header_lower:
+                date_idx = header_lower.index(possible_name)
+                break
+        
+        if date_idx is None:
+            print(f"Ошибка: нет колонки 'date' или 'data'. Найдены: {header}")
+            return []
+
+        # Ищем interests (необязательно)
+        interests_idx = header_lower.index("interests") if "interests" in header_lower else None
+
         people = []
-        for _, row in df.iterrows():
-            name = str(row["name"]).strip()
-            date_str = str(row["date"]).strip()
-            interests = str(row.get("interests", "")).strip() if "interests" in df.columns else ""
+        for row in reader:
+            # Пропускаем строки, где не хватает данных
+            if len(row) <= max(name_idx, date_idx):
+                continue
+
+            name = row[name_idx].strip()
+            date_str = row[date_idx].strip()
+            
+            interests = ""
+            if interests_idx is not None and len(row) > interests_idx:
+                interests = row[interests_idx].strip()
 
             if not name or not date_str:
-                continue  # пропускаем пустые строки
+                continue
 
             people.append({
                 "name": name,
